@@ -29,7 +29,11 @@ class Bezier:
     def weights(self, values):
         self.__weights = values
 
-    def IsRational(self):
+    @property
+    def degree(self) -> int:
+        return len(ctrl_points) - 1
+
+    def IsRational(self) -> bool:
         return len(self.weights) > 0
 
     ##
@@ -57,6 +61,12 @@ class Bezier:
         pass
 
     def D1(self):
+        pass
+
+    def D2(self):
+        pass
+
+    def DN(self):
         pass
 
     ##
