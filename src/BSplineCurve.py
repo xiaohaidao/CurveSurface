@@ -77,20 +77,64 @@ class BSpline:
         return points
 
     def D0(self, u:float):
-        return self.__CurveDerivsAlg1(u, self.ctrl_points, 0)[0]
+        return self.DN(u, 0)
 
     def D1(self, u:float):
-        return self.__CurveDerivsAlg1(u, self.ctrl_points, 1)[1]
+        return self.DN(u, 1)
 
     def D2(self, u:float):
-        return self.__CurveDerivsAlg1(u, self.ctrl_points, 2)[2]
+        return self.DN(u, 2)
 
     def DN(self, u:float, k:int):
         if k > self.degree:
             return 0
-        return self.__CurveDerivsAlg1(u, self.ctrl_points, k)[k]
+        if self.IsRational():
+            ctrl = np.append(np.array(self.ctrl_points),
+                    np.array(self.weights).reshape(-1,1), axis = 1)
 
-    def InsertKnot(self):
+            point = np.array(self.__CurveDerivsAlg1(u, self.ctrl_points, k)[k])
+            return np.divide(point[:-1], point[-1], out=np.zeros_like(point[:-1]),
+                    where = point[-1] != 0).tolist()
+        else:
+            return self.__CurveDerivsAlg1(u, self.ctrl_points, k)[k]
+
+    def InsertKnot(self, u:float):
+        pass
+
+    def __CurveKnotIns(self):
+        pass
+
+    def __SurfaceKnotIns(self):
+        pass
+
+    def __CurvePntByCornerCut(self):
+        pass
+
+    def __RefineKnotVectCurve(self):
+        pass
+
+    def __RefineKnotVectSurface(self):
+        pass
+
+    def __DecomposeCurve(self):
+        pass
+
+    def __DecomposeSurface(self):
+        pass
+
+    def __RemoveCurveKnot(self):
+        pass
+
+    def __DegreeElevateCurve(self):
+        pass
+
+    def __DegreeElevateSurface(self):
+        pass
+
+    def __DegreeReduceCurve(self):
+        pass
+
+    def __DegreeReduceSurface(self):
         pass
 
     def RemoveKnot(self):
@@ -111,7 +155,7 @@ class BSpline:
         # pass
 
     # Get the range u $\in$ [U[index], U[index + 1])
-    def __FindSpan(self, u:float) -> int:
+    def FindSpan(self, u:float) -> int:
         U = self.knots
         # m = len(self.ctrl_points) + self.degree
         # n = m - self.degree - 1
@@ -129,12 +173,9 @@ class BSpline:
         return mid
 
     def BasisFuns(self, u:float, span:int=-1) -> [float]:
-        return self.__BasisFuns(u, span)
-
-    def __BasisFuns(self, u:float, span:int=-1) -> [float]:
         p = self.degree
         U = self.knots
-        i = self.__FindSpan(u) if span < 0 else span
+        i = self.FindSpan(u) if span < 0 else span
         N = [0.] * (p + 1)
         left = N.copy()
         right = left.copy()
@@ -151,13 +192,10 @@ class BSpline:
         return N
 
     def DersBasisFuns(self, u:float, span:int=-1) -> [[float]]:
-        return self.__DersBasisFuns(u, span)
-
-    def __DersBasisFuns(self, u:float, span:int=-1) -> [[float]]:
         p = self.degree
         U = self.knots
         n = (len(U) - 1) - self.degree - 1
-        i = self.__FindSpan(u) if span < 0 else span
+        i = self.FindSpan(u) if span < 0 else span
         ndu = [[0.] * (p + 1) for i1 in range(p + 1)]
         ndu[0][0] = 1.
 
@@ -203,14 +241,11 @@ class BSpline:
         return ders
 
     def OneBasisFuns(self, u:float, span:int=-1) -> float:
-        return self.__OneBasisFuns(u, span)
-
-    def __OneBasisFuns(self, u:float, span:int=-1) -> float:
         p = self.degree
         U = self.knots
         n = (len(U) - 1) - self.degree - 1
         m = n + p + 1
-        i = self.__FindSpan(u) if span < 0 else span
+        i = self.FindSpan(u) if span < 0 else span
         if (i == 0 and u == U[0]) or (i == n and u == U[m]):
             return 1.
         if u < U[i] or u >= U[i + p + 1]:
@@ -236,13 +271,10 @@ class BSpline:
         return N[0]
 
     def DersOneBasisFuns(self, u:float, span:int=-1) -> [float]:
-        return self.__DersOneBasisFuns(u, span)
-
-    def __DersOneBasisFuns(self, u:float, span:int=-1) -> [float]:
         p = self.degree
         U = self.knots
         n = (len(U) - 1) - self.degree - 1
-        i = self.__FindSpan(u) if span < 0 else span
+        i = self.FindSpan(u) if span < 0 else span
         ders = [0.] * (n + 1)
         if u < U[i] or u >= U[i + p + 1]:
             return ders
@@ -290,8 +322,8 @@ class BSpline:
 
     def __CurvePoint(self, u:float, ctrl=[]):
         p = self.degree
-        span = self.__FindSpan(u)
-        N = np.array(self.__BasisFuns(u, span))
+        span = self.FindSpan(u)
+        N = np.array(self.BasisFuns(u, span))
         c = np.array([0.] * len(ctrl[0]))
         for i in range(p + 1):
             c = c + N[i] * np.array(ctrl[span - p + i])
@@ -303,13 +335,49 @@ class BSpline:
         # CK = np.zeros((d + 1, len(ctrl_pts[0])))
         CK = np.array([[0.] * len(ctrl_pts[0]) for i1 in range(d + 1)])
         ctrl = np.array(ctrl_pts)
-        span = self.__FindSpan(u)
-        ders = np.array(self.__DersBasisFuns(u, span))
+        span = self.FindSpan(u)
+        ders = np.array(self.DersBasisFuns(u, span))
         for k in range(du + 1):
             CK[k] =0.
             for j in range(p + 1):
                 CK[k] = CK[k] + ctrl[span - p + j] * ders[k][j]
         return CK.tolist()
+
+    def __CurveDerivsAlg2(self, u:float, ctrl_pts=[], d:int=0):
+        p = self.degree
+        du = min(d, p)
+        # CK = np.zeros((d + 1, len(ctrl_pts[0])))
+        CK = np.array([[0.] * len(ctrl_pts[0]) for i1 in range(d + 1)])
+        ctrl = np.array(ctrl_pts)
+        span = self.FindSpan(u)
+        N = self.BasisFuns(u, span)
+        PK = self.__CurveDerivCpts(du, span - p, span)
+        for k in range(du + 1):
+            CK[k] =0.
+            for j in range(p - k + 1):
+                CK[k] = CK[k] + N[j][p - k] * PK[k][j]
+        return CK.tolist()
+
+    ##
+    # @brief __CurveDerivCpts 计算曲线直到d阶(包括d，d<=p)的所有导曲线的控制点
+    #
+    # @return PK[k][i]返回k阶导曲线的第i个控制点，$k=0,1,\cdots,d$
+    #    $i=r_1,\cdots,r_2-k$，r1=0且r2=n则计算所有的控制点
+    def __CurveDerivCpts(self, d:int, r1:int, r2:int):
+        P = self.ctrl_points
+        p = self.degree
+        n = (len(U) - 1) - self.degree - 1
+        r = r2 - r1
+        PK = [[0.] * (r + 1) for i1 in range(d + 1)]
+        # PK = [[0.] * (n + 1) for i1 in range(p + 1)]
+        for i in range(r + 1):
+            PK[0][i] = P[r1 + i]
+        for k in range(1, d + 1):
+            tmp = p - k + 1
+            for i in range(r - k + 1):
+                PK[k][i] =  tmp * (PK[k - 1][i + 1] - PK[k - 1][i]) / (
+                        U[r1 + i + p + 1] - U[r1 + i + k])
+        return PK
 
 def __BSplineShow(ax, list_point, knots):
     points = np.array(BSpline(list_point, knots, has_w = True).Curve())
